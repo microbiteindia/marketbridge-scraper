@@ -25,46 +25,12 @@ async function getAmazonProduct(asin) {
     const title =
         document.querySelector("#productTitle")?.innerText.trim() || "";
 
-    const whole =
-        (document.querySelector(".a-price-whole")?.innerText || "")
-            .replace(/\./g, "");
-
-    const fraction =
-        document.querySelector(".a-price-fraction")?.innerText || "00";
-
-    const priceText =
-        whole ? `${whole}.${fraction}` : "";
-
     const price =
-        parseFloat(priceText.replace(/[₹,\s]/g, "")) || 0;
-
-    const image =
-        document.querySelector("#landingImage")?.src ||
-        document.querySelector("#imgBlkFront")?.src ||
-        "";
-
-    const rating =
-        parseFloat(
-            document.querySelector("#acrPopover")
-                ?.getAttribute("title")
-                ?.match(/[\d.]+/)?.[0] || "0"
-        ) || 0;
-
-    const asin =
-        location.pathname.match(/\/dp\/([A-Z0-9]{10})/)?.[1] || "";
+        document.querySelector(".a-price .a-offscreen")?.innerText.trim() || "";
 
     return {
-
         title,
-
-        price,
-
-        image,
-
-        rating,
-
-        asin
-
+        price
     };
 
 });
@@ -75,19 +41,11 @@ async function getAmazonProduct(asin) {
 
     success: true,
 
-    marketplace: "amazon",
-
-    asin: product.asin,
+    asin,
 
     title: product.title,
 
-    price: product.price,
-
-    image: product.image,
-
-    rating: product.rating,
-
-    url: `https://www.amazon.in/dp/${product.asin}`
+    price: product.price
 
 };
 
