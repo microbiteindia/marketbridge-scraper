@@ -1,4 +1,5 @@
-const searchRoute = require("./routes/search");
+//const searchRoute = require("./routes/search");
+const amazonRoute = require("./routes/amazon");
 const express = require("express");
 const { getBrowser } = require("./browser/browser");
 
@@ -37,7 +38,8 @@ app.get("/browser", async (req, res) => {
 
 });
 
-app.use("/search", searchRoute);
+//app.use("/search", searchRoute);
+app.use("/amazon", amazonRoute);
 
 app.listen(PORT, () => {
 
