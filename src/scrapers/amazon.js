@@ -25,27 +25,13 @@ async function getAmazonProduct(asin) {
     const title =
         document.querySelector("#productTitle")?.innerText.trim() || "";
 
-    const priceContainer =
-    document.querySelector("#corePrice_feature_div");
+    let price = "";
 
-let price = null;
-
-if (priceContainer) {
-
-    const whole =
-        (priceContainer.querySelector(".a-price-whole")?.innerText || "")
-            .replace(/\./g, "");
-
-    const fraction =
-        priceContainer.querySelector(".a-price-fraction")?.innerText || "00";
-
-    if (whole) {
-
-        price = parseFloat(`${whole}.${fraction}`);
-
-    }
-
-}
+price =
+    item.querySelector(".a-price-whole")?.innerText ||
+    item.querySelector(".a-price .a-offscreen")?.innerText ||
+    item.querySelector(".a-offscreen")?.innerText ||
+    "";
 
 
     const image =
@@ -67,7 +53,9 @@ if (priceContainer) {
 
         title,
 
-        price,
+        price: Number(
+    			price.replace(/[₹,\s]/g, "")
+		) || 0,
 
         image,
 
