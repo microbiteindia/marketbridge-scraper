@@ -4,7 +4,7 @@ let browser = null;
 
 async function getBrowser() {
 
-    if (browser && browser.isConnected()) {
+    if (browser) {
         return browser;
     }
 
