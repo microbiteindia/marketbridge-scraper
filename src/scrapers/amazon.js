@@ -25,18 +25,33 @@ async function getAmazonProduct(asin) {
     const title =
         document.querySelector("#productTitle")?.innerText.trim() || "";
 
-    const whole =
-        (document.querySelector(".a-price-whole")?.innerText || "")
-            .replace(/\./g, "");
+    let price = null;
 
-    const fraction =
-        document.querySelector(".a-price-fraction")?.innerText || "00";
+const selectors = [
+    "#corePrice_feature_div .a-price .a-offscreen",
+    "#corePriceDisplay_desktop_feature_div .a-price .a-offscreen",
+    ".priceToPay .a-offscreen",
+    "#apex_desktop .a-price .a-offscreen"
+];
 
-    const priceText =
-        whole ? `${whole}.${fraction}` : "";
+for (const selector of selectors) {
 
-    const price =
-        parseFloat(priceText.replace(/[₹,\s]/g, "")) || 0;
+    const el = document.querySelector(selector);
+
+    if (el) {
+
+        const text = el.innerText.trim();
+
+        const match = text.match(/[\d,]+(?:\.\d+)?/);
+
+        if (match) {
+
+            price = parseFloat(match[0].replace(/,/g, ""));
+
+            break;
+        }
+    }
+}
 
 
 
