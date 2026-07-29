@@ -1,3 +1,4 @@
+const searchRoute = require("./routes/search");
 const express = require("express");
 const { getBrowser } = require("./browser/browser");
 
@@ -35,6 +36,8 @@ app.get("/browser", async (req, res) => {
     }
 
 });
+
+app.use("/search", searchRoute);
 
 app.listen(PORT, () => {
 
