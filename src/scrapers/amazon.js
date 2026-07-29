@@ -57,7 +57,6 @@ price =
     price.replace(/[₹,\s]/g, "")
 ) || 0,
 
-price_text: price.replace("₹", "").trim(),
 
         image,
 
