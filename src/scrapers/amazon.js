@@ -25,27 +25,14 @@ async function getAmazonProduct(asin) {
     const title =
         document.querySelector("#productTitle")?.innerText.trim() || "";
 
-    const priceContainer =
-    document.querySelector("#corePrice_feature_div");
+    let price = "";
 
-let price = null;
+price =
+    item.querySelector(".a-price-whole")?.innerText ||
+    item.querySelector(".a-price .a-offscreen")?.innerText ||
+    item.querySelector(".a-offscreen")?.innerText ||
+    "";
 
-if (priceContainer) {
-
-    const whole =
-        (priceContainer.querySelector(".a-price-whole")?.innerText || "")
-            .replace(/\./g, "");
-
-    const fraction =
-        priceContainer.querySelector(".a-price-fraction")?.innerText || "00";
-
-    if (whole) {
-
-        price = parseFloat(`${whole}.${fraction}`);
-
-    }
-
-}
 
     const image =
         document.querySelector("#landingImage")?.src ||
@@ -66,7 +53,11 @@ if (priceContainer) {
 
         title,
 
-        price,
+        price: Number(
+    price.replace(/[₹,\s]/g, "")
+) || 0,
+
+price_text: price.replace("₹", "").trim(),
 
         image,
 
@@ -91,6 +82,8 @@ if (priceContainer) {
     title: product.title,
 
     price: product.price,
+
+   price_text: price,
 
     image: product.image,
 
