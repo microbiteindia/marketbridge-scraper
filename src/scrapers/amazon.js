@@ -53,10 +53,7 @@ price =
 
         title,
 
-        price: Number(
-    price.replace(/[₹,\s]/g, "")
-) || 0,
-
+        price,
 
         image,
 
@@ -81,8 +78,6 @@ price =
     title: product.title,
 
     price: product.price,
-
-   price_text: price,
 
     image: product.image,
 
