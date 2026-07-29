@@ -20,19 +20,34 @@ async function getAmazonProduct(asin) {
 
     );
 
-    const title = await page.title();
+    const product = await page.evaluate(() => {
+
+    const title =
+        document.querySelector("#productTitle")?.innerText.trim() || "";
+
+    const price =
+        document.querySelector(".a-price .a-offscreen")?.innerText.trim() || "";
+
+    return {
+        title,
+        price
+    };
+
+});
 
     await page.close();
 
     return {
 
-        success: true,
+    success: true,
 
-        asin,
+    asin,
 
-        title
+    title: product.title,
 
-    };
+    price: product.price
+
+};
 
 }
 
