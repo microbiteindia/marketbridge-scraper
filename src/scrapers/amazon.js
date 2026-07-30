@@ -84,6 +84,7 @@ const getMeta = (prop) => {
     document.querySelector("#landingImage")?.src ||
     document.querySelector("#imgTagWrapperId img")?.src ||
     document.querySelector("#imgBlkFront")?.src ||
+    document.querySelector("#main-image-container img")?.src ||
     "";
 
     const rating =
