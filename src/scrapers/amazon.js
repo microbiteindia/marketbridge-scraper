@@ -20,45 +20,71 @@ async function getAmazonProduct(asin) {
 
     );
 
+    try {
+        await page.waitForSelector("#productTitle, #centerCol, #ppd", { timeout: 8000 });
+    } catch (e) {}
+
+
     const product = await page.evaluate(() => {
+
+const cleanPrice = (text) => {
+
+    if (!text) return null;
+
+    const value = text
+        .replace(/,/g, "")
+        .replace(/[^\d.]/g, "");
+
+    return value ? parseFloat(value) : null;
+
+};
+
+const getMeta = (prop) => {
+            const el = document.querySelector(`meta[property="${prop}"], meta[name="${prop}"]`);
+            return el ? el.getAttribute('content') : '';
+        };
+
 
     const title =
         document.querySelector("#productTitle")?.innerText.trim() || "";
 
-    let price = null;
+    // 2. TARGET MAIN PRODUCT CONTAINER ONLY (#ppd or #centerCol)
+        // This stops selectors from grabbing prices from "Recently Viewed" or "Sponsored" sections!
+        const mainContainer = document.querySelector("#ppd") || document.querySelector("#centerCol") || document;
 
-const selectors = [
-    "#corePrice_feature_div .a-price .a-offscreen",
-    "#corePriceDisplay_desktop_feature_div .a-price .a-offscreen",
-    ".priceToPay .a-offscreen",
-    "#apex_desktop .a-price .a-offscreen"
-];
+        const primaryPriceSelectors = [
+            "#corePrice_feature_div .a-price .a-offscreen",
+            "#corePriceDisplay_desktop_feature_div .a-price .a-offscreen",
+            "#apex_desktop .a-price .a-offscreen",
+            ".apexPriceToPay .a-offscreen",
+            "#priceblock_ourprice",
+            "#priceblock_dealprice",
+            "#priceblock_saleprice",
+            "#price_inside_buybox",
+            "#newBuyBoxPrice",
+            ".a-price .a-offscreen"
+        ];
 
-for (const selector of selectors) {
-
-    const el = document.querySelector(selector);
-
-    if (el) {
-
-        const text = el.innerText.trim();
-
-        const match = text.match(/[\d,]+(?:\.\d+)?/);
-
-        if (match) {
-
-            price = parseFloat(match[0].replace(/,/g, ""));
-
-            break;
+        let priceText = "";
+        for (const selector of primaryPriceSelectors) {
+            const el = mainContainer.querySelector(selector);
+            if (el && el.innerText.trim()) {
+                priceText = el.innerText.trim();
+                break;
+            }
         }
-    }
-}
+
+        // If still no price found in main container, check if item is explicitly Out of Stock
+        const isOutOfStock = !!mainContainer.querySelector("#outOfStock, #availability .a-color-state, #availability .a-color-price");
+
 
 
 
     const image =
-        document.querySelector("#landingImage")?.src ||
-        document.querySelector("#imgBlkFront")?.src ||
-        "";
+    document.querySelector("#landingImage")?.src ||
+    document.querySelector("#imgTagWrapperId img")?.src ||
+    document.querySelector("#imgBlkFront")?.src ||
+    "";
 
     const rating =
         parseFloat(
@@ -74,7 +100,7 @@ for (const selector of selectors) {
 
         title,
 
-        price,
+        price: isOutOfStock ? null : cleanPrice(priceText),
 
         image,
 
