@@ -1,84 +1,246 @@
-const { getBrowser } = require("../browser/browser");
+const { getFlipkartPage } = require("../browser/browser");
 
 async function getFlipkartProduct(pid) {
 
-    const browser = await getBrowser();
+    const page = await getFlipkartPage();
 
-    const page = await browser.newPage();
-
-    const url = "https://www.flipkart.com/search?q=" + pid;
-
-    await page.setRequestInterception(true);
-
-page.on("request", (request) => {
-    request.continue();
-});
-
-page.on("response", async (response) => {
+    const fallbackUrl = `https://www.flipkart.com/product/p/item?pid=${pid}`;
 
     try {
 
-        const url = response.url();
+        const result = await page.evaluate(async (targetPid) => {
 
-        console.log(url);
+            try {
 
-        const text = await response.text().catch(() => "");
+                const response = await fetch(
 
-        if (text.length > 100) {
+                    "https://www.flipkart.com/api/4/page/fetch",
 
-            require("fs").writeFileSync(
+                    {
 
-                "response-" + Date.now() + ".txt",
+                        method: "POST",
 
-                text
+                        credentials: "include",
 
-            );
+                        headers: {
 
-        }
+                            "Content-Type": "application/json",
 
-    } catch (e) {}
+                            "X-User-Agent":
 
-});
+                                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) FKUA/website/42/website/Desktop"
 
-await page.goto(
+                        },
 
-    "https://www.flipkart.com/item/p/itm?pid=" + pid,
+                        body: JSON.stringify({
 
-    {
+                            pageUri: `/product/p/item?pid=${targetPid}`
 
-        waitUntil: "domcontentloaded",
+                        })
 
-        timeout: 60000
+                    }
+
+                );
+
+                if (!response.ok) {
+
+                    return null;
+
+                }
+
+                const data = await response.json();
+
+                const pageContext =
+
+                    data?.RESPONSE?.pageData?.pageContext ||
+
+                    data?.RESPONSE?.slots?.[0]?.widget?.data?.pageContext ||
+
+                    null;
+
+                if (!pageContext) {
+
+                    return null;
+
+                }
+
+                const title =
+
+                    pageContext.titles?.title ||
+
+                    pageContext.titles?.subtitle ||
+
+                    pageContext.title ||
+
+                    "";
+
+                const pricing = pageContext.pricing || {};
+
+                let price =
+
+                    pricing.finalPrice?.decimalValue ??
+
+                    pricing.specialPrice?.decimalValue ??
+
+                    pricing.salePrice?.decimalValue ??
+
+                    pricing.currentPrice?.decimalValue ??
+
+                    pricing.mrp?.decimalValue ??
+
+                    null;
+
+                if (price !== null) {
+
+                    price = parseFloat(price);
+
+                }
+
+                let image =
+
+                    pageContext.imageUrl ||
+
+                    "";
+
+                if (
+
+                    !image &&
+
+                    Array.isArray(pageContext.multimedia?.images)
+
+                ) {
+
+                    image =
+
+                        pageContext.multimedia.images[0]?.url ||
+
+                        "";
+
+                }
+
+                if (
+
+                    !image &&
+
+                    Array.isArray(pageContext.media?.images)
+
+                ) {
+
+                    image =
+
+                        pageContext.media.images[0]?.url ||
+
+                        "";
+
+                }
+
+                if (
+
+                    !image &&
+
+                    Array.isArray(pageContext.productImages)
+
+                ) {
+
+                    image =
+
+                        pageContext.productImages[0]?.url ||
+
+                        "";
+
+                }
+
+                const rating =
+
+                    parseFloat(
+
+                        pageContext.rating?.average ||
+
+                        pageContext.rating?.averageRating ||
+
+                        pageContext.rating?.overallRating ||
+
+                        0
+
+                    ) || 0;
+
+                const productUrl =
+
+                    pageContext.shareUrl ||
+
+                    pageContext.url ||
+
+                    pageContext.productUrl ||
+
+                    `https://www.flipkart.com/product/p/item?pid=${targetPid}`;
+
+                return {
+
+                    title,
+
+                    price,
+
+                    image,
+
+                    rating,
+
+                    url: productUrl
+
+                };
+
+            } catch (e) {
+
+                return null;
+
+            }
+
+        }, pid);
+
+        return {
+
+            success: !!(result && result.title),
+
+            marketplace: "flipkart",
+
+            pid,
+
+            title: result?.title || "",
+
+            price: result?.price,
+
+            image: result?.image || "",
+
+            rating: result?.rating || 0,
+
+            url: result?.url || fallbackUrl
+
+        };
+
+    } catch (err) {
+
+        return {
+
+            success: false,
+
+            marketplace: "flipkart",
+
+            pid,
+
+            title: "",
+
+            price: null,
+
+            image: "",
+
+            rating: 0,
+
+            url: fallbackUrl,
+
+            error: err.message
+
+        };
 
     }
-
-);
-
-await new Promise(resolve => setTimeout(resolve, 15000));
-
-    const title = await page.title();
-
-    await page.close();
-
-    return {
-
-        success: true,
-
-        marketplace: "flipkart",
-
-        pid,
-
-        title,
-
-        price: null,
-
-        image: "",
-
-        rating: 0,
-
-        url
-
-    };
 
 }
 

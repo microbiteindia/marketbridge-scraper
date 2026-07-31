@@ -1,139 +1,206 @@
-const { getBrowser } = require("../browser/browser");
+const { getAmazonPage } = require("../browser/browser");
 
 async function getAmazonProduct(asin) {
 
-    const browser = await getBrowser();
+    const page = await getAmazonPage();
 
-    const page = await browser.newPage();
-
-    await page.goto(
-
-        "https://www.amazon.in/dp/" + asin,
-
-        {
-
-            waitUntil: "domcontentloaded",
-
-            timeout: 60000
-
-        }
-
-    );
+    const canonicalUrl = `https://www.amazon.in/dp/${asin}`;
 
     try {
-        await page.waitForSelector("#productTitle, #centerCol, #ppd", { timeout: 8000 });
-    } catch (e) {}
 
+        await page.goto(
 
-    const product = await page.evaluate(() => {
+            canonicalUrl,
 
-const cleanPrice = (text) => {
+            {
 
-    if (!text) return null;
+                waitUntil: "domcontentloaded",
 
-    const value = text
-        .replace(/,/g, "")
-        .replace(/[^\d.]/g, "");
+                timeout: 30000
 
-    return value ? parseFloat(value) : null;
+            }
 
-};
+        );
 
-const getMeta = (prop) => {
-            const el = document.querySelector(`meta[property="${prop}"], meta[name="${prop}"]`);
-            return el ? el.getAttribute('content') : '';
+        const product = await page.evaluate((targetAsin) => {
+
+            const cleanPrice = (text) => {
+
+                if (!text) return null;
+
+                const match = text.match(/[\d,]+(?:\.\d+)?/);
+
+                if (!match) return null;
+
+                return parseFloat(
+
+                    match[0].replace(/,/g, "")
+
+                );
+
+            };
+
+            let title = "";
+
+            const titleEl = document.querySelector("#productTitle");
+
+            if (titleEl) {
+
+                title = titleEl.innerText.trim();
+
+            }
+
+            let priceText = "";
+
+            const priceSelectors = [
+
+                "#corePrice_feature_div .a-price .a-offscreen",
+
+                "#corePriceDisplay_desktop_feature_div .a-price .a-offscreen",
+
+                ".priceToPay .a-offscreen",
+
+                "#apex_desktop .a-price .a-offscreen",
+
+                "#priceblock_ourprice",
+
+                "#priceblock_dealprice",
+
+                "#priceblock_saleprice",
+
+                "#price_inside_buybox",
+
+                "#newBuyBoxPrice",
+
+                "span.a-price .a-offscreen",
+
+                "span.a-price-whole"
+
+            ];
+
+            for (const selector of priceSelectors) {
+
+                const el = document.querySelector(selector);
+
+                if (el && el.innerText.trim()) {
+
+                    priceText = el.innerText.trim();
+
+                    break;
+
+                }
+
+            }
+
+            let image = "";
+
+            const imgEl = document.querySelector(
+
+                "#landingImage, #imgBlkFront"
+
+            );
+
+            if (imgEl) {
+
+                image =
+
+                    imgEl.getAttribute("data-old-hires") ||
+
+                    imgEl.getAttribute("src") ||
+
+                    "";
+
+            }
+
+            let rating = 0;
+
+            const ratingEl =
+
+                document.querySelector("#acrPopover") ||
+
+                document.querySelector(".a-icon-alt");
+
+            if (ratingEl) {
+
+                const text =
+
+                    ratingEl.getAttribute("title") ||
+
+                    ratingEl.innerText ||
+
+                    "";
+
+                const match = text.match(/([0-9.]+)/);
+
+                if (match) {
+
+                    rating = parseFloat(match[1]);
+
+                }
+
+            }
+
+            return {
+
+                asin: targetAsin,
+
+                title,
+
+                price: cleanPrice(priceText),
+
+                image,
+
+                rating
+
+            };
+
+        }, asin);
+
+        return {
+
+            success: !!(product && product.title),
+
+            marketplace: "amazon",
+
+            asin,
+
+            title: product.title || "",
+
+            price: product.price,
+
+            image: product.image || "",
+
+            rating: product.rating || 0,
+
+            url: canonicalUrl
+
         };
 
+    } catch (err) {
 
-    const title =
-        document.querySelector("#productTitle")?.innerText.trim() || "";
+        return {
 
-    // 2. TARGET MAIN PRODUCT CONTAINER ONLY (#ppd or #centerCol)
-        // This stops selectors from grabbing prices from "Recently Viewed" or "Sponsored" sections!
-        const mainContainer = document.querySelector("#ppd") || document.querySelector("#centerCol") || document;
+            success: false,
 
-        const primaryPriceSelectors = [
-            "#corePrice_feature_div .a-price .a-offscreen",
-            "#corePriceDisplay_desktop_feature_div .a-price .a-offscreen",
-            "#apex_desktop .a-price .a-offscreen",
-            ".apexPriceToPay .a-offscreen",
-            "#priceblock_ourprice",
-            "#priceblock_dealprice",
-            "#priceblock_saleprice",
-            "#price_inside_buybox",
-            "#newBuyBoxPrice",
-            ".a-price .a-offscreen"
-        ];
+            marketplace: "amazon",
 
-        let priceText = "";
-        for (const selector of primaryPriceSelectors) {
-            const el = mainContainer.querySelector(selector);
-            if (el && el.innerText.trim()) {
-                priceText = el.innerText.trim();
-                break;
-            }
-        }
+            asin,
 
-        // If still no price found in main container, check if item is explicitly Out of Stock
-        const isOutOfStock = !!mainContainer.querySelector("#outOfStock, #availability .a-color-state, #availability .a-color-price");
+            title: "",
 
+            price: null,
 
+            image: "",
 
+            rating: 0,
 
-    const image =
-    document.querySelector("#landingImage")?.src ||
-    document.querySelector("#imgTagWrapperId img")?.src ||
-    document.querySelector("#imgBlkFront")?.src ||
-    document.querySelector("#main-image-container img")?.src ||
-    "";
+            url: canonicalUrl,
 
-    const rating =
-        parseFloat(
-            document.querySelector("#acrPopover")
-                ?.getAttribute("title")
-                ?.match(/[\d.]+/)?.[0] || "0"
-        ) || 0;
+            error: err.message
 
-    const asin =
-        location.pathname.match(/\/dp\/([A-Z0-9]{10})/)?.[1] || "";
+        };
 
-    return {
-
-        title,
-
-        price: isOutOfStock ? null : cleanPrice(priceText),
-
-        image,
-
-        rating,
-
-        asin
-
-    };
-
-});
-
-    await page.close();
-
-    return {
-
-    success: true,
-
-    marketplace: "amazon",
-
-    asin: product.asin,
-
-    title: product.title,
-
-    price: product.price,
-
-    image: product.image,
-
-    rating: product.rating,
-
-    url: `https://www.amazon.in/dp/${product.asin}`
-
-};
+    }
 
 }
 
