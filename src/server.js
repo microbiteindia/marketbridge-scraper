@@ -1,3 +1,6 @@
+const amazonRoute = require("./routes/amazon");
+const flipkartRoutes = require("./routes/flipkart");
+
 const express = require("express");
 const { getBrowser } = require("./browser/browser");
 
@@ -35,6 +38,9 @@ app.get("/browser", async (req, res) => {
     }
 
 });
+
+app.use("/amazon", amazonRoute);
+app.use("/flipkart", flipkartRoutes);
 
 app.listen(PORT, () => {
 
