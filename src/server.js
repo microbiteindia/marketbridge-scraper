@@ -1,20 +1,12 @@
-const express = require("express");
-
 const amazonRoute = require("./routes/amazon");
 const flipkartRoutes = require("./routes/flipkart");
 
-const searchRoute = require("./routes/search");
-const amazonSearchRoute = require("./routes/search-amazon");
-const flipkartSearchRoute = require("./routes/search-flipkart");
-
+const express = require("express");
 const { getBrowser } = require("./browser/browser");
 
 const app = express();
 
 const PORT = process.env.PORT || 3000;
-
-//app.use(express.json());
-
 
 app.get("/", (req, res) => {
 
@@ -49,14 +41,6 @@ app.get("/browser", async (req, res) => {
 
 app.use("/amazon", amazonRoute);
 app.use("/flipkart", flipkartRoutes);
-
-app.use("/search", searchRoute);
-
-// /search-amazon?q=iphone+15
-app.use("/search-amazon", amazonSearchRoute);
-
-// /search-flipkart?q=iphone+15
-app.use("/search-flipkart", flipkartSearchRoute);
 
 app.listen(PORT, () => {
 
