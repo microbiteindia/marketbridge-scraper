@@ -1,18 +1,14 @@
-const express = require("express");
+const { searchFlipkart } = require("../scrapers/flipkart");
 
-const { searchAmazon } = require("../scrapers/search-amazon");
-const { searchFlipkart } = require("../scrapers/search-flipkart");
+const express = require("express");
 
 const router = express.Router();
 
 router.get("/", async (req, res) => {
 
-    const keyword =
-        req.query.q ||
-        req.query.keyword;
+    const keyword = req.query.q || req.query.keyword;
 
-
-    if (!keyword || !keyword.trim()) {
+    if (!keyword) {
 
         return res.status(400).json({
 
@@ -23,92 +19,44 @@ router.get("/", async (req, res) => {
 
     }
 
+const results = [];
+	const errors = [];
+try {
 
-    const cleanKeyword =
-        keyword.trim();
+    		const flipkart = await searchFlipkart(keyword);
 
+		if (flipkart.success) {
 
-    const amazonPromise =
-        searchAmazon(cleanKeyword)
-            .catch(error => ({
+    			results.push(...flipkart.products);
 
-                success: false,
-                marketplace: "amazon",
-                keyword: cleanKeyword,
-                products: [],
-                error: error.message
+		}
 
-            }));
+	} catch (error) {
 
+    		errors.push({
+        		marketplace: "Flipkart",
+        		message: error.message
+    		});
 
-    const flipkartPromise =
-        searchFlipkart(cleanKeyword)
-            .catch(error => ({
-
-                success: false,
-                marketplace: "flipkart",
-                keyword: cleanKeyword,
-                products: [],
-                error: error.message
-
-            }));
+	}
 
 
-    const [
-        amazon,
-        flipkart
-    ] = await Promise.all([
-        amazonPromise,
-        flipkartPromise
-    ]);
-
-
-    const errors = [];
-
-
-    if (!amazon.success) {
-
-        errors.push({
-
-            marketplace: "Amazon",
-            message: amazon.error || "Amazon search failed."
-
-        });
-
-    }
-
-
-    if (!flipkart.success) {
-
-        errors.push({
-
-            marketplace: "Flipkart",
-            message: flipkart.error || "Flipkart search failed."
-
-        });
-
-    }
-
-
-    return res.json({
+    res.json({
 
         success: true,
 
-        keyword: cleanKeyword,
+        keyword,
 
-        amazon: amazon.success
-            ? amazon.products
-            : [],
+        amazon: [],
 
-        flipkart: flipkart.success
-            ? flipkart.products
-            : [],
+        flipkart: []
+results,
 
-        errors
+    		errors
+
 
     });
 
 });
-
 
 module.exports = router;
