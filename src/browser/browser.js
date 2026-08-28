@@ -11,6 +11,7 @@ async function getBrowser() {
     }
 
     browser = await puppeteer.launch({
+headless: true,
         headless: "new",
         args: [
             "--no-sandbox",
