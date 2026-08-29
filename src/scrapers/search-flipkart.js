@@ -28,7 +28,7 @@ async function searchFlipkart(keyword) {
                 const resourceType = req.resourceType();
 
                 if (
-                    ["image", "stylesheet", "font", "media", "other"].includes(resourceType) ||
+                    ["stylesheet", "font", "media", "other"].includes(resourceType) ||
                     url.includes("analytics") || url.includes("ads") || url.includes("tracker") || url.includes("telemetry")
                 ) {
                     req.abort();
@@ -83,14 +83,6 @@ async function searchFlipkart(keyword) {
                 clean = clean.replace(/(\d\.\d)[\d,]+ Ratings.*/, "").trim();
                 clean = clean.replace(/₹.*/, "").trim();
                 return clean;
-            };
-
-	const formatImageUrl = (src) => {
-                if (!src) return "";
-                return src
-                    .replace(/{@width}/g, "200")
-                    .replace(/{@height}/g, "200")
-                    .replace(/{@quality}/g, "70");
             };
 
             const results = [];
@@ -218,38 +210,12 @@ async function searchFlipkart(keyword) {
                     }
                 }
 
-                // 6. Image Extraction & Formatting
-const imgEl = container.querySelector("img");
-let image = "";
-
-if (imgEl) {
-    // 1. Try reading `srcset` (contains full URLs even when lazy-loading is blocked)
-    const srcset = imgEl.getAttribute("srcset") || imgEl.getAttribute("data-srcset") || "";
-    
-    if (srcset) {
-        // srcset format: "url1 1x, url2 2x" -> split and take the last/highest quality candidate
-        const candidates = srcset.split(",").map(item => item.trim().split(" ")[0]);
-        image = candidates[candidates.length - 1] || "";
-    }
-
-    // 2. Fallback to data-src or src if srcset isn't present
-    if (!image || image.includes("placeholder")) {
-        image = imgEl.getAttribute("data-src") || imgEl.getAttribute("src") || "";
-    }
-
-    // 3. Ensure absolute URL protocol
-    if (image.startsWith("//")) {
-        image = `https:${image}`;
-    }
-
-    // 4. Resolve template parameters if Flipkart returns raw template strings
-    image = formatImageUrl(image);
-
-    // 5. If it's still a placeholder, discard it so your client isn't serving generic SVGs
-    if (image.includes("placeholder")) {
-        image = "";
-    }
-}
+                // 6. Image Extraction
+                const imgEl = container.querySelector("img");
+                let image = "";
+                if (imgEl) {
+                    image = imgEl.getAttribute("src") || imgEl.getAttribute("data-src") || "";
+                }
 
                 // 7. Clean Short URL Output
                 const url = `https://www.flipkart.com/product/p/item?pid=${pid}`;
