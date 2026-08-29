@@ -41,7 +41,7 @@ async function getAmazonProduct(asin) {
 
         await page.goto(canonicalUrl, {
             waitUntil: "domcontentloaded",
-            timeout: 15000
+            timeout: 30000
         });
 
         console.timeEnd(`amazon-goto-${asin}`);
