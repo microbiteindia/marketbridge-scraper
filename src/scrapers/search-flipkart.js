@@ -89,6 +89,7 @@ async function searchFlipkart(keyword) {
             const results = [];
             const seenPids = new Set();
             const productLinks = Array.from(document.querySelectorAll('a[href*="/p/"]'));
+	    let nativeRank = 1;
 
             productLinks.forEach((linkEl) => {
                 const href = linkEl.getAttribute("href") || "";
