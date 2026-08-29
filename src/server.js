@@ -1,4 +1,6 @@
 const express = require("express");
+const cors = require("cors");
+const NodeCache = require("node-cache");
 
 const amazonRoute = require("./routes/amazon");
 const flipkartRoutes = require("./routes/flipkart");
@@ -10,10 +12,44 @@ const flipkartSearchRoute = require("./routes/search-flipkart");
 const { getBrowser } = require("./browser/browser");
 
 const app = express();
-
 const PORT = process.env.PORT || 3000;
 
+// Initialize cache with 1-hour TTL (Time-To-Live)
+const routeCache = new NodeCache({ stdTTL: 3600, checkperiod: 120 });
+
+// Middlewares
+app.use(cors());
 app.use(express.json());
+
+// In-Memory Response Caching Middleware
+const cacheMiddleware = (req, res, next) => {
+    // Only cache GET requests
+    if (req.method !== "GET") return next();
+
+    const cacheKey = req.originalUrl || req.url;
+    const cachedResponse = routeCache.get(cacheKey);
+
+    if (cachedResponse) {
+        return res.json({
+            ...cachedResponse,
+            cached: true
+        });
+    }
+
+// Intercept res.json to store payload before sending
+    const originalJson = res.json.bind(res);
+    res.json = (body) => {
+        if (res.statusCode === 200 && body && body.success !== false) {
+            routeCache.set(cacheKey, body);
+        }
+        return originalJson(body);
+    };
+
+    next();
+};
+
+// Apply cache to all scraping routes
+app.use(cacheMiddleware);
 
 
 app.get("/", (req, res) => {
@@ -23,6 +59,11 @@ app.get("/", (req, res) => {
         message: "MarketBridge Scraper is running."
     });
 
+});
+
+// Health Check Endpoint (For Uptime Monitoring & Keep-Alive)
+app.get("/health", (req, res) => {
+    res.status(200).send("OK");
 });
 
 app.get("/browser", async (req, res) => {
@@ -58,8 +99,28 @@ app.use("/search-amazon", amazonSearchRoute);
 // /search-flipkart?q=iphone+15
 app.use("/search-flipkart", flipkartSearchRoute);
 
-app.listen(PORT, () => {
+// Global 404 Handler
+app.use((req, res) => {
+    res.status(404).json({
+        success: false,
+        message: "Endpoint not found"
+    });
+});
 
+const server = app.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);
+});
 
+// Graceful Shutdown Handler
+process.on("SIGTERM", async () => {
+    console.log("SIGTERM signal received. Closing HTTP server and browser...");
+    server.close(async () => {
+        try {
+            const browser = await getBrowser();
+            if (browser && browser.connected) {
+                await browser.close();
+            }
+        } catch (err) {}
+        process.exit(0);
+    });
 });
