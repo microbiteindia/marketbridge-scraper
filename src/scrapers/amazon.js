@@ -6,7 +6,11 @@ async function getAmazonProduct(asin) {
 
     const canonicalUrl = `https://www.amazon.in/dp/${asin}`;
 
+console.time(`amazon-total-${asin}`);
+
     try {
+
+console.time(`amazon-goto-${asin}`);
 
         await page.goto(
 
@@ -21,6 +25,10 @@ async function getAmazonProduct(asin) {
             }
 
         );
+
+console.timeEnd(`amazon-goto-${asin}`);
+
+        console.time(`amazon-extract-${asin}`);
 
         const product = await page.evaluate((targetAsin) => {
 
@@ -156,6 +164,10 @@ async function getAmazonProduct(asin) {
 
         }, asin);
 
+console.timeEnd(`amazon-extract-${asin}`);
+
+        console.timeEnd(`amazon-total-${asin}`);
+
         return {
 
             success: !!(product && product.title),
@@ -177,6 +189,8 @@ async function getAmazonProduct(asin) {
         };
 
     } catch (err) {
+
+console.timeEnd(`amazon-total-${asin}`);
 
         return {
 
