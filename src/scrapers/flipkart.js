@@ -96,14 +96,60 @@ async function getFlipkartProduct(pid) {
 
                 }
 
+                let image =
 
-const imgEl = container.querySelector("img");
-                let image = "";
-                if (imgEl) {
-                    image = imgEl.getAttribute("src") || imgEl.getAttribute("data-src") || "";
+                    pageContext.imageUrl ||
+
+                    "";
+
+                if (
+
+                    !image &&
+
+                    Array.isArray(pageContext.multimedia?.images)
+
+                ) {
+
+                    image =
+
+                        pageContext.multimedia.images[0]?.url ||
+
+                        "";
+
                 }
 
-                
+                if (
+
+                    !image &&
+
+                    Array.isArray(pageContext.media?.images)
+
+                ) {
+
+                    image =
+
+                        pageContext.media.images[0]?.url ||
+
+                        "";
+
+                }
+
+                if (
+
+                    !image &&
+
+                    Array.isArray(pageContext.productImages)
+
+                ) {
+
+                    image =
+
+                        pageContext.productImages[0]?.url ||
+
+                        "";
+
+                }
+
                 const rating =
 
                     parseFloat(
