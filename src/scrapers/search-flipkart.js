@@ -28,7 +28,7 @@ async function searchFlipkart(keyword) {
                 const resourceType = req.resourceType();
 
                 if (
-                    ["stylesheet", "font", "media", "other"].includes(resourceType) ||
+                    ["image", "stylesheet", "font", "media", "other"].includes(resourceType) ||
                     url.includes("analytics") || url.includes("ads") || url.includes("tracker") || url.includes("telemetry")
                 ) {
                     req.abort();
@@ -83,6 +83,14 @@ async function searchFlipkart(keyword) {
                 clean = clean.replace(/(\d\.\d)[\d,]+ Ratings.*/, "").trim();
                 clean = clean.replace(/₹.*/, "").trim();
                 return clean;
+            };
+
+const formatImageUrl = (src) => {
+                if (!src) return "";
+                return src
+                    .replace(/{@width}/g, "200")
+                    .replace(/{@height}/g, "200")
+                    .replace(/{@quality}/g, "70");
             };
 
             const results = [];
@@ -210,12 +218,60 @@ async function searchFlipkart(keyword) {
                     }
                 }
 
-                // 6. Image Extraction
-                const imgEl = container.querySelector("img");
-                let image = "";
-                if (imgEl) {
-                    image = imgEl.getAttribute("src") || imgEl.getAttribute("data-src") || "";
+                // 6. Image Extraction with JSON State Fallback
+let image = "";
+
+// A. Extract from DOM img tags (srcset/data-src/src)
+const imgEl = container.querySelector("img");
+if (imgEl) {
+    const srcset = imgEl.getAttribute("srcset") || imgEl.getAttribute("data-srcset") || "";
+    if (srcset) {
+        const candidates = srcset.split(",").map((item) => item.trim().split(" ")[0]);
+        image = candidates[candidates.length - 1] || "";
+    }
+
+    if (!image || image.includes("placeholder")) {
+        image = imgEl.getAttribute("data-src") || imgEl.getAttribute("src") || "";
+    }
+}
+
+// B. Fallback: Parse directly from Flipkart's embedded JSON page state if DOM image is blank/placeholder
+if (!image || image.includes("placeholder")) {
+    try {
+        const scripts = Array.from(document.querySelectorAll("script"));
+        const stateScript = scripts.find(s => s.textContent && s.textContent.includes("__INITIAL_STATE__"));
+        
+        if (stateScript) {
+            const rawText = stateScript.textContent;
+            // Search for PID matches inside the raw JSON payload
+            const pidIndex = rawText.indexOf(pid);
+            if (pidIndex !== -1) {
+                // Look for image URL patterns within 1000 characters of the product ID
+                const chunk = rawText.substring(pidIndex, pidIndex + 1000);
+                const urlMatch = chunk.match(/http[s]?:\/\/[^"]*?\.flixcart\.com\/image\/[^\s"]+/i) ||
+                                 chunk.match(/http[s]?:\/\/[^"]*?\.fkcdn\.com\/image\/[^\s"]+/i);
+                if (urlMatch) {
+                    image = urlMatch[0];
                 }
+            }
+        }
+    } catch (e) {
+        // Fallback catch
+    }
+}
+
+// C. Clean URL & Protocol
+if (image) {
+    if (image.startsWith("//")) {
+        image = `https:${image}`;
+    }
+    image = formatImageUrl(image);
+    
+    // Discard generic placeholder SVG assets
+    if (image.includes("placeholder")) {
+        image = "";
+    }
+}
 
                 // 7. Clean Short URL Output
                 const url = `https://www.flipkart.com/product/p/item?pid=${pid}`;
