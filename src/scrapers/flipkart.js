@@ -28,7 +28,7 @@ await page.evaluateOnNewDocument(() => {
             const resourceType = req.resourceType();
 
             if (
-                ['image', 'stylesheet', 'font', 'media', 'other'].includes(resourceType) ||
+                ['stylesheet', 'font', 'media', 'other'].includes(resourceType) ||
                 url.includes('analytics') || url.includes('ads') || url.includes('tracker')
             ) {
                 req.abort();
@@ -161,15 +161,6 @@ if (
         "";
 }
 
-// Convert Flipkart image template URL into a real image URL
-if (image) {
-
-    image = image
-        .replace(/\{@width\}/g, "312")
-        .replace(/\{@height\}/g, "312")
-        .replace(/\{@quality\}/g, "80");
-
-}
 
                 const rating =
 
