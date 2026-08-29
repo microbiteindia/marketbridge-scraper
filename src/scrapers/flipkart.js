@@ -104,6 +104,8 @@ const formatImageUrl = (src) => {
                     .replace(/{@quality}/g, "70");
             };
 
+// 6. Image Extraction
+
 // 6. Image Extraction & Formatting
                 const imgEl = container.querySelector("img");
                 let image = "";
