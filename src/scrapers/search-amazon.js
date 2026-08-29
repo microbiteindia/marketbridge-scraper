@@ -3,9 +3,10 @@ const { getBrowser } = require("../browser/browser");
 async function searchAmazon(keyword) {
 
     const browser = await getBrowser();
-    const page = await browser.newPage();
+    let page = null;
 
     try {
+	page = await browser.newPage();
 
         // ---------------------------------------------------------
         // 1. Stealth
@@ -31,27 +32,23 @@ async function searchAmazon(keyword) {
         await page.setRequestInterception(true);
 
         page.on("request", (req) => {
-
-            if (
-                req.isInterceptResolutionHandled &&
-                req.isInterceptResolutionHandled()
-            ) {
+            if (req.isInterceptResolutionHandled && req.isInterceptResolutionHandled()) {
                 return;
             }
 
             try {
+		const url = req.url().toLowerCase();
+                const resourceType = req.resourceType();
 
                 if (
-                    req.resourceType() === "font" ||
-                    req.resourceType() === "media"
+                    ["image", "stylesheet", "font", "media", "other"].includes(resourceType) ||
+                    url.includes("analytics") || url.includes("ads") || url.includes("tracker") || url.includes("telemetry")
                 ) {
                     req.abort();
                 } else {
                     req.continue();
                 }
-
             } catch (e) {}
-
         });
 
 
@@ -81,24 +78,7 @@ async function searchAmazon(keyword) {
         // ---------------------------------------------------------
         // 4. Detect the most relevant Amazon brand
         //
-        // Examples:
-        //
-        // iphone
-        //    -> Apple
-        //
-        // nord
-        //    -> OnePlus
-        //
-        // oneplus
-        //    -> OnePlus
-        //
-        // apple iphone 15
-        //    -> Apple
-        //
-        // mobile phone
-        //    -> no forced brand
-        // ---------------------------------------------------------
-
+        
         const detectedBrand = await page.evaluate((keyword) => {
 
             const normalize = (text) => {
@@ -142,10 +122,9 @@ async function searchAmazon(keyword) {
 
             for (const card of cards) {
 
-                const sponsored =
-                    card.querySelector(
-                        ".puis-sponsored-label-text, .s-sponsored-label-info"
-                    );
+                const sponsored = card.querySelector(
+                    ".puis-sponsored-label-text, .s-sponsored-label-info, [data-component-type='s-impression-logger']"
+                );
 
 
                 if (sponsored) {
@@ -221,15 +200,7 @@ async function searchAmazon(keyword) {
                     .trim();
 
 
-                if (!text) {
-                    continue;
-                }
-
-
-                // Brand names in the sidebar are normally short.
-                if (text.length > 40) {
-                    continue;
-                }
+                if (!text || text.length > 40) continue;
 
 
                 const brand =
@@ -446,19 +417,7 @@ async function searchAmazon(keyword) {
             }
 
 
-            // -----------------------------------------------------
-            // Safety rules
-            //
-            // 1. Explicit brand in search:
-            //    always allow it.
-            //
-            // 2. No explicit brand:
-            //    require strong dominance in results.
-            //
-            // This prevents generic searches such as
-            // "mobile phone" from becoming Samsung-only.
-            // -----------------------------------------------------
-
+            
             if (best.queryMatch) {
 
                 return JSON.stringify({
@@ -543,34 +502,17 @@ async function searchAmazon(keyword) {
         // 6. Extract products
         // ---------------------------------------------------------
 
-        const products = await page.evaluate(() => {
+	const cleanKeyword = keyword.trim().toLowerCase();
+        const tokens = cleanKeyword.split(/\s+/).filter(Boolean);        
+
+	const products = await page.evaluate((searchTokens) => {
 
             const cleanPrice = (text) => {
-
-                if (!text) {
-                    return null;
-                }
-
-
-                const match =
-                    text.match(/[\d,]+(?:\.\d+)?/);
-
-
-                if (!match) {
-                    return null;
-                }
-
-
-                const number =
-                    parseFloat(
-                        match[0].replace(/,/g, "")
-                    );
-
-
-                return isNaN(number)
-                    ? null
-                    : number;
-
+                if (!text) return null;
+                const match = text.match(/[\d,]+(?:\.\d+)?/);
+                if (!match) return null;
+                const number = parseFloat(match[0].replace(/,/g, ""));
+                return isNaN(number) ? null : number;
             };
 
 
@@ -695,6 +637,8 @@ async function searchAmazon(keyword) {
                     'div[data-component-type="s-search-result"]'
                 );
 
+let nativeRank = 1;
+
             cards.forEach((el) => {
 
                 const asin =
@@ -714,15 +658,11 @@ async function searchAmazon(keyword) {
                 // Exclude sponsored products
                 // -------------------------------------------------
 
-                const sponsored =
-                    el.querySelector(
-                        ".puis-sponsored-label-text, .s-sponsored-label-info"
-                    );
+                const sponsored = el.querySelector(".puis-sponsored-label-text, .s-sponsored-label-info, [data-component-type='s-impression-logger']");
+                const containsAdText = el.textContent.toLowerCase().includes("sponsored");
+                if (sponsored || (containsAdText && !el.querySelector("h2"))) return;
 
-
-                if (sponsored) {
-                    return;
-                }
+const currentRank = nativeRank++;
 
 
                 // -------------------------------------------------
@@ -863,7 +803,7 @@ async function searchAmazon(keyword) {
 
             return results;
 
-        });
+       }, tokens);
 
 
         return {
@@ -896,18 +836,10 @@ async function searchAmazon(keyword) {
         };
 
     } finally {
-
-        if (
-            page &&
-            !page.isClosed()
-        ) {
-
+        if (page && !page.isClosed()) {
             await page.close().catch(() => {});
-
         }
-
     }
-
 }
 
 

@@ -1,6 +1,5 @@
 const express = require("express");
 const cors = require("cors");
-const NodeCache = require("node-cache");
 
 const amazonRoute = require("./routes/amazon");
 const flipkartRoutes = require("./routes/flipkart");
@@ -14,43 +13,9 @@ const { getBrowser } = require("./browser/browser");
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Initialize cache with 1-hour TTL (Time-To-Live)
-const routeCache = new NodeCache({ stdTTL: 3600, checkperiod: 120 });
-
 // Middlewares
 app.use(cors());
 app.use(express.json());
-
-// In-Memory Response Caching Middleware
-const cacheMiddleware = (req, res, next) => {
-    // Only cache GET requests
-    if (req.method !== "GET") return next();
-
-    const cacheKey = req.originalUrl || req.url;
-    const cachedResponse = routeCache.get(cacheKey);
-
-    if (cachedResponse) {
-        return res.json({
-            ...cachedResponse,
-            cached: true
-        });
-    }
-
-// Intercept res.json to store payload before sending
-    const originalJson = res.json.bind(res);
-    res.json = (body) => {
-        if (res.statusCode === 200 && body && body.success !== false) {
-            routeCache.set(cacheKey, body);
-        }
-        return originalJson(body);
-    };
-
-    next();
-};
-
-// Apply cache to all scraping routes
-app.use(cacheMiddleware);
-
 
 app.get("/", (req, res) => {
 

@@ -1,12 +1,46 @@
-const { getFlipkartPage } = require("../browser/browser");
+const { getBrowser } = require("../browser/browser");
 
 async function getFlipkartProduct(pid) {
 
-    const page = await getFlipkartPage();
+    const browser = await getBrowser();
+    let page = null;
 
     const fallbackUrl = `https://www.flipkart.com/product/p/item?pid=${pid}`;
 
     try {
+
+	page = await browser.newPage();
+
+await page.evaluateOnNewDocument(() => {
+            Object.defineProperty(navigator, 'webdriver', { get: () => false });
+        });
+
+        await page.setUserAgent(
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
+        );
+
+        // Intercept network requests to speed up page loads and conserve RAM
+        await page.setRequestInterception(true);
+        page.on('request', (req) => {
+            if (req.isInterceptResolutionHandled && req.isInterceptResolutionHandled()) return;
+
+            const url = req.url().toLowerCase();
+            const resourceType = req.resourceType();
+
+            if (
+                ['image', 'stylesheet', 'font', 'media', 'other'].includes(resourceType) ||
+                url.includes('analytics') || url.includes('ads') || url.includes('tracker')
+            ) {
+                req.abort();
+            } else {
+                req.continue();
+            }
+        });
+
+await page.goto(fallbackUrl, {
+            waitUntil: "domcontentloaded",
+            timeout: 15000
+        });
 
         const result = await page.evaluate(async (targetPid) => {
 
@@ -131,8 +165,8 @@ if (
 if (image) {
 
     image = image
-        .replace(/\{@width\}/g, "832")
-        .replace(/\{@height\}/g, "832")
+        .replace(/\{@width\}/g, "312")
+        .replace(/\{@height\}/g, "312")
         .replace(/\{@quality\}/g, "80");
 
 }
@@ -175,11 +209,40 @@ if (image) {
 
                 };
 
-            } catch (e) {
+            } catch (e) {}
 
-                return null;
+                // Attempt 2: Fallback to DOM Selectors if internal API response fails
+            const cleanPrice = (text) => {
+                if (!text) return null;
+                const match = text.match(/[\d,]+/);
+                if (!match) return null;
+                const num = parseFloat(match[0].replace(/,/g, ""));
+                return isNaN(num) ? null : num;
+            };
 
+            const titleEl = document.querySelector("span.B_NuT2, h1._2xm1JU, span.VU-VGg");
+            const title = titleEl ? titleEl.textContent.trim() : "";
+
+            const priceEl = document.querySelector("div._30jeq3._16J30T, div._30jeq3, div.Nx9bqj._4b5PhR");
+            const price = priceEl ? cleanPrice(priceEl.textContent) : null;
+
+            const imgEl = document.querySelector("img._396cs4._2amL9g, img._2r_T1I, img.DHM5Ju");
+            const image = imgEl ? (imgEl.getAttribute("src") || "") : "";
+
+            const ratingEl = document.querySelector("div._3LWZlK, div.X18h85");
+            let rating = 0;
+            if (ratingEl) {
+                const parsed = parseFloat(ratingEl.textContent.trim());
+                if (!isNaN(parsed)) rating = parsed;
             }
+
+            return {
+                title,
+                price,
+                image,
+                rating,
+                url: `https://www.flipkart.com/product/p/item?pid=${targetPid}`
+            };
 
         }, pid);
 
@@ -227,8 +290,11 @@ if (image) {
 
         };
 
+    } finally {
+        if (page && !page.isClosed()) {
+            await page.close().catch(() => {});
+        }
     }
-
 }
 
 module.exports = {
