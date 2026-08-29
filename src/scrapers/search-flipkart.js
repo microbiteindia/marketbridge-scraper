@@ -211,47 +211,38 @@ async function searchFlipkart(keyword) {
                 }
 
                 // 6. Image Extraction
-                let image =
-    pageContext.imageUrl ||
-    "";
+                // 6. Image Extraction & Formatting
+const imgEl = container.querySelector("img");
+let image = "";
 
-if (
-    !image &&
-    Array.isArray(pageContext.multimedia?.images)
-) {
-    image =
-        pageContext.multimedia.images[0]?.url ||
-        "";
+if (imgEl) {
+    // 1. Try reading `srcset` (contains full URLs even when lazy-loading is blocked)
+    const srcset = imgEl.getAttribute("srcset") || imgEl.getAttribute("data-srcset") || "";
+    
+    if (srcset) {
+        // srcset format: "url1 1x, url2 2x" -> split and take the last/highest quality candidate
+        const candidates = srcset.split(",").map(item => item.trim().split(" ")[0]);
+        image = candidates[candidates.length - 1] || "";
+    }
+
+    // 2. Fallback to data-src or src if srcset isn't present
+    if (!image || image.includes("placeholder")) {
+        image = imgEl.getAttribute("data-src") || imgEl.getAttribute("src") || "";
+    }
+
+    // 3. Ensure absolute URL protocol
+    if (image.startsWith("//")) {
+        image = `https:${image}`;
+    }
+
+    // 4. Resolve template parameters if Flipkart returns raw template strings
+    image = formatImageUrl(image);
+
+    // 5. If it's still a placeholder, discard it so your client isn't serving generic SVGs
+    if (image.includes("placeholder")) {
+        image = "";
+    }
 }
-
-if (
-    !image &&
-    Array.isArray(pageContext.media?.images)
-) {
-    image =
-        pageContext.media.images[0]?.url ||
-        "";
-}
-
-if (
-    !image &&
-    Array.isArray(pageContext.productImages)
-) {
-    image =
-        pageContext.productImages[0]?.url ||
-        "";
-}
-
-// Convert Flipkart image template URL into a real image URL
-if (image) {
-
-    image = image
-        .replace(/\{@width\}/g, "312")
-        .replace(/\{@height\}/g, "312")
-        .replace(/\{@quality\}/g, "80");
-
-}
-
 
                 // 7. Clean Short URL Output
                 const url = `https://www.flipkart.com/product/p/item?pid=${pid}`;
