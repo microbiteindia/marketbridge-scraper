@@ -1,30 +1,31 @@
 const { getBrowser } = require("../browser/browser");
 
 async function searchFlipkart(keyword) {
+
     const browser = await getBrowser();
     let page = null;
 
     try {
-        page = await browser.newPage();
+	page = await browser.newPage();
 
         // 1. Anti-detection Setup
         await page.evaluateOnNewDocument(() => {
-            Object.defineProperty(navigator, "webdriver", { get: () => false });
+            Object.defineProperty(navigator, 'webdriver', { get: () => false });
         });
 
         await page.setUserAgent(
             "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
         );
 
-        // 2. Strict Request Interception (Speed & Memory Optimization)
+        // 2. Safe Request Interception
         await page.setRequestInterception(true);
-        page.on("request", (req) => {
+        page.on('request', (req) => {
             if (req.isInterceptResolutionHandled && req.isInterceptResolutionHandled()) {
                 return;
             }
 
             try {
-                const url = req.url().toLowerCase();
+		const url = req.url().toLowerCase();
                 const resourceType = req.resourceType();
 
                 if (
@@ -44,23 +45,23 @@ async function searchFlipkart(keyword) {
         const targetUrl = `https://www.flipkart.com/search?q=${encodeURIComponent(keyword)}`;
         await page.goto(targetUrl, {
             waitUntil: "domcontentloaded",
-            timeout: 15000
+            timeout: 30000
         });
 
-        await page.waitForSelector('a[href*="/p/"]', { timeout: 5000 }).catch(() => {});
+        await page.waitForSelector('a[href*="/p/"]', { timeout: 10000 }).catch(() => {});
 
-        // 4. Extraction Logic with Position Tracking
+        // 4. Extraction Logic
         const products = await page.evaluate((keyword) => {
             const stopWords = ["for", "with", "the", "a", "an", "of", "in", "and", "or", "by", "to"];
-            const allTerms = keyword.toLowerCase().trim().split(/\s+/).filter((w) => w.length > 0);
-            const meaningfulTerms = allTerms.filter((w) => !stopWords.includes(w));
+            const allTerms = keyword.toLowerCase().trim().split(/\s+/).filter(w => w.length > 0);
+            const meaningfulTerms = allTerms.filter(w => !stopWords.includes(w));
 
             const blockedWords = [
                 "case", "cover", "charger", "cable", "screen",
                 "protector", "glass", "holder", "stand", "back cover", "skin"
             ];
 
-            const userIsSearchingForAccessory = allTerms.some((term) => blockedWords.includes(term));
+            const userIsSearchingForAccessory = allTerms.some(term => blockedWords.includes(term));
 
             const cleanPrice = (text) => {
                 if (!text) return null;
@@ -88,7 +89,6 @@ async function searchFlipkart(keyword) {
             const results = [];
             const seenPids = new Set();
             const productLinks = Array.from(document.querySelectorAll('a[href*="/p/"]'));
-            let nativeRank = 1;
 
             productLinks.forEach((linkEl) => {
                 const href = linkEl.getAttribute("href") || "";
@@ -118,22 +118,17 @@ async function searchFlipkart(keyword) {
 
                 // 1. Exclude Ads
                 const containerText = (container.textContent || "").toLowerCase();
-                const isAd =
-                    containerText.includes("sponsored") ||
-                    Array.from(container.querySelectorAll("span, div")).some(
-                        (el) => el.textContent.trim() === "Ad"
-                    );
+                const isAd = containerText.includes("sponsored") ||
+                             Array.from(container.querySelectorAll("span, div")).some(el => el.textContent.trim() === "Ad");
                 if (isAd) return;
 
-                const currentRank = nativeRank++;
+		const currentRank = nativeRank++;
 
                 // 2. Extract Clean Title
                 let rawTitle = linkEl.getAttribute("title") || "";
 
                 if (!rawTitle) {
-                    const titleNode = container.querySelector(
-                        "._4rR01T, .s1QR8W, .IRyMuX, .Wj24N_, a.title, ._2WkL22, h2, .VU-VGg"
-                    );
+                    const titleNode = container.querySelector("._4rR01T, .s1QR8W, .IRyMuX, .Wj24N_, a.title, ._2WkL22, h2");
                     if (titleNode) {
                         rawTitle = titleNode.textContent || titleNode.innerText || "";
                     }
@@ -141,10 +136,7 @@ async function searchFlipkart(keyword) {
 
                 if (!rawTitle) {
                     const rawLinkText = (linkEl.textContent || "").trim();
-                    if (
-                        rawLinkText.length > 10 &&
-                        meaningfulTerms.some((t) => rawLinkText.toLowerCase().includes(t))
-                    ) {
+                    if (rawLinkText.length > 10 && meaningfulTerms.some(t => rawLinkText.toLowerCase().includes(t))) {
                         rawTitle = rawLinkText;
                     }
                 }
@@ -155,44 +147,36 @@ async function searchFlipkart(keyword) {
 
                 // 3. Accessory Filter
                 if (!userIsSearchingForAccessory) {
-                    const isAccessory = blockedWords.some((word) => titleLower.includes(word));
+                    const isAccessory = blockedWords.some(word => titleLower.includes(word));
                     if (isAccessory) return;
                 }
 
                 // 4. Flexible Term Matching
                 let matchCount = 0;
-                meaningfulTerms.forEach((word) => {
+                meaningfulTerms.forEach(word => {
                     if (titleLower.includes(word)) matchCount++;
                 });
 
-                const matchRatio =
-                    meaningfulTerms.length > 0 ? matchCount / meaningfulTerms.length : 0;
+                const matchRatio = meaningfulTerms.length > 0 ? matchCount / meaningfulTerms.length : 0;
                 if (matchRatio < 0.6) return;
+
+                const score = matchCount;
 
                 // 5. Price Extraction
                 let price = null;
-                const primaryPriceNode = container.querySelector(
-                    "div.Nx9bqj, div._30jeq3, div._1_WHN1"
-                );
+                const primaryPriceNode = container.querySelector("div.Nx9bqj, div._30jeq3, div._1_WHN1");
                 if (primaryPriceNode) {
                     price = cleanPrice(primaryPriceNode.textContent || primaryPriceNode.innerText || "");
                 }
 
                 if (!price) {
-                    const candidates = Array.from(container.querySelectorAll("div, span")).filter((el) => {
+                    const candidates = Array.from(container.querySelectorAll("div, span")).filter(el => {
                         const txt = (el.textContent || "").trim();
                         if (!/^₹\s*[\d,]+$/.test(txt)) return false;
 
-                        const isStrikethrough = window
-                            .getComputedStyle(el)
-                            .textDecoration.includes("line-through");
-                        const hasStrikeClass =
-                            el.classList.contains("_27ZgL4") ||
-                            el.classList.contains("_3I9_wc") ||
-                            el.classList.contains("_3auL10");
-                        const parentTxt = (
-                            el.parentElement ? el.parentElement.textContent : ""
-                        ).toLowerCase();
+                        const isStrikethrough = window.getComputedStyle(el).textDecoration.includes("line-through");
+                        const hasStrikeClass = el.classList.contains("_27ZgL4") || el.classList.contains("_3I9_wc") || el.classList.contains("_3auL10");
+                        const parentTxt = (el.parentElement ? el.parentElement.textContent : "").toLowerCase();
                         const isDiscount = parentTxt.includes("off") || parentTxt.includes("exchange");
 
                         return !isStrikethrough && !hasStrikeClass && !isDiscount;
@@ -222,21 +206,17 @@ async function searchFlipkart(keyword) {
 
                 // 8. Rating Extraction
                 let rating = 0;
-                const ratingEl = container.querySelector(
-                    "._3LWZlK, ._1lR392, .XqA3y2, ._3LWZlK._1BLNfl, .X18h85"
-                );
+                const ratingEl = container.querySelector("._3LWZlK, ._1lR392, .XqA3y2, ._3LWZlK._1BLNfl, .X18h85");
                 if (ratingEl) {
                     const match = (ratingEl.textContent || "").match(/([0-9.]+)/);
                     if (match) rating = parseFloat(match[1]);
                 }
 
                 if (!rating) {
-                    const ratingCandidate = Array.from(container.querySelectorAll("div, span")).find(
-                        (el) => {
-                            const txt = (el.textContent || "").trim();
-                            return /^[1-5](\.[0-9])?$/.test(txt);
-                        }
-                    );
+                    const ratingCandidate = Array.from(container.querySelectorAll("div, span")).find(el => {
+                        const txt = (el.textContent || "").trim();
+                        return /^[1-5](\.[0-9])?$/.test(txt);
+                    });
                     if (ratingCandidate) {
                         rating = parseFloat(ratingCandidate.textContent.trim());
                     }
@@ -245,20 +225,22 @@ async function searchFlipkart(keyword) {
                 if (title && price) {
                     seenPids.add(pid);
                     results.push({
-                        position: currentRank,
+			position: currentRank,
                         marketplace: "flipkart",
-                        id: pid,
                         pid,
                         title,
                         price,
                         image,
                         rating,
-                        url
+                        url,
+                        score
                     });
                 }
             });
 
-            return results.slice(0, 50);
+            return results
+                .sort((a, b) => b.score !== a.score ? b.score - a.score : b.rating - a.rating)
+                .slice(0, 50);
         }, keyword);
 
         return {
