@@ -28,7 +28,7 @@ async function searchFlipkart(keyword) {
                 const resourceType = req.resourceType();
 
                 if (
-                    ["stylesheet", "font", "media", "other"].includes(resourceType) ||
+                    ["image", "stylesheet", "font", "media", "other"].includes(resourceType) ||
                     url.includes("analytics") || url.includes("ads") || url.includes("tracker") || url.includes("telemetry")
                 ) {
                     req.abort();
