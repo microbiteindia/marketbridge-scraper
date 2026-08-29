@@ -85,6 +85,14 @@ async function searchFlipkart(keyword) {
                 return clean;
             };
 
+	const formatImageUrl = (src) => {
+                if (!src) return "";
+                return src
+                    .replace(/{@width}/g, "200")
+                    .replace(/{@height}/g, "200")
+                    .replace(/{@quality}/g, "70");
+            };
+
             const results = [];
             const seenPids = new Set();
             const productLinks = Array.from(document.querySelectorAll('a[href*="/p/"]'));
