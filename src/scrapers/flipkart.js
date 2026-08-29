@@ -96,25 +96,47 @@ async function getFlipkartProduct(pid) {
 
                 }
 
-const formatImageUrl = (src) => {
-                if (!src) return "";
-                return src
-                    .replace(/{@width}/g, "200")
-                    .replace(/{@height}/g, "200")
-                    .replace(/{@quality}/g, "70");
-            };
+                let image =
+    pageContext.imageUrl ||
+    "";
 
-// 6. Image Extraction
+if (
+    !image &&
+    Array.isArray(pageContext.multimedia?.images)
+) {
+    image =
+        pageContext.multimedia.images[0]?.url ||
+        "";
+}
 
-// 6. Image Extraction & Formatting
-                const imgEl = container.querySelector("img");
-                let image = "";
-                if (imgEl) {
-                    const rawImg = imgEl.getAttribute("src") || imgEl.getAttribute("data-src") || "";
-                    image = formatImageUrl(rawImg);
-                }
+if (
+    !image &&
+    Array.isArray(pageContext.media?.images)
+) {
+    image =
+        pageContext.media.images[0]?.url ||
+        "";
+}
 
-                
+if (
+    !image &&
+    Array.isArray(pageContext.productImages)
+) {
+    image =
+        pageContext.productImages[0]?.url ||
+        "";
+}
+
+// Convert Flipkart image template URL into a real image URL
+if (image) {
+
+    image = image
+        .replace(/\{@width\}/g, "832")
+        .replace(/\{@height\}/g, "832")
+        .replace(/\{@quality\}/g, "80");
+
+}
+
                 const rating =
 
                     parseFloat(
