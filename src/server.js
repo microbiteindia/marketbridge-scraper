@@ -111,16 +111,10 @@ const server = app.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);
 });
 
-// Graceful Shutdown Handler
-process.on("SIGTERM", async () => {
-    console.log("SIGTERM signal received. Closing HTTP server and browser...");
-    server.close(async () => {
-        try {
-            const browser = await getBrowser();
-            if (browser && browser.connected) {
-                await browser.close();
-            }
-        } catch (err) {}
-        process.exit(0);
+process.on("SIGTERM", () => {
+    console.log("SIGTERM received. Shutting down gracefully...");
+    server.close(() => {
+        console.log("Process terminated.");
+        process.exit(0); // Exits cleanly so Docker registers code 0 (no error)
     });
 });
