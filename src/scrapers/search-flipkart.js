@@ -3,11 +3,9 @@ const { getBrowser } = require("../browser/browser");
 async function searchFlipkart(keyword) {
 
     const browser = await getBrowser();
-    let page = null;
+    const page = await browser.newPage();
 
     try {
-	page = await browser.newPage();
-
         // 1. Anti-detection Setup
         await page.evaluateOnNewDocument(() => {
             Object.defineProperty(navigator, 'webdriver', { get: () => false });
@@ -25,13 +23,7 @@ async function searchFlipkart(keyword) {
             }
 
             try {
-		const url = req.url().toLowerCase();
-                const resourceType = req.resourceType();
-
-                if (
-                    ["image", "stylesheet", "font", "media", "other"].includes(resourceType) ||
-                    url.includes("analytics") || url.includes("ads") || url.includes("tracker") || url.includes("telemetry")
-                ) {
+                if (['font', 'media'].includes(req.resourceType())) {
                     req.abort();
                 } else {
                     req.continue();
@@ -89,7 +81,6 @@ async function searchFlipkart(keyword) {
             const results = [];
             const seenPids = new Set();
             const productLinks = Array.from(document.querySelectorAll('a[href*="/p/"]'));
-	    let nativeRank = 1;
 
             productLinks.forEach((linkEl) => {
                 const href = linkEl.getAttribute("href") || "";
@@ -108,8 +99,7 @@ async function searchFlipkart(keyword) {
                             current.classList.contains("_1AtVbE") ||
                             current.classList.contains("cPH3B6") ||
                             current.classList.contains("_2kHMtA") ||
-                            current.classList.contains("_75nlfW") ||
-                            current.classList.contains("slP2O-")
+                            current.classList.contains("_75nlfW")
                         ) {
                             container = current;
                             break;
@@ -122,8 +112,6 @@ async function searchFlipkart(keyword) {
                 const isAd = containerText.includes("sponsored") ||
                              Array.from(container.querySelectorAll("span, div")).some(el => el.textContent.trim() === "Ad");
                 if (isAd) return;
-
-		const currentRank = nativeRank++;
 
                 // 2. Extract Clean Title
                 let rawTitle = linkEl.getAttribute("title") || "";
@@ -207,7 +195,7 @@ async function searchFlipkart(keyword) {
 
                 // 8. Rating Extraction
                 let rating = 0;
-                const ratingEl = container.querySelector("._3LWZlK, ._1lR392, .XqA3y2, ._3LWZlK._1BLNfl, .X18h85");
+                const ratingEl = container.querySelector("._3LWZlK, ._1lR392, .XqA3y2, ._3LWZlK._1BLNfl");
                 if (ratingEl) {
                     const match = (ratingEl.textContent || "").match(/([0-9.]+)/);
                     if (match) rating = parseFloat(match[1]);
@@ -226,7 +214,6 @@ async function searchFlipkart(keyword) {
                 if (title && price) {
                     seenPids.add(pid);
                     results.push({
-			position: currentRank,
                         marketplace: "flipkart",
                         pid,
                         title,
