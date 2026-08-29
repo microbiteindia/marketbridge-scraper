@@ -211,11 +211,47 @@ async function searchFlipkart(keyword) {
                 }
 
                 // 6. Image Extraction
-                const imgEl = container.querySelector("img");
-                let image = "";
-                if (imgEl) {
-                    image = imgEl.getAttribute("src") || imgEl.getAttribute("data-src") || "";
-                }
+                let image =
+    pageContext.imageUrl ||
+    "";
+
+if (
+    !image &&
+    Array.isArray(pageContext.multimedia?.images)
+) {
+    image =
+        pageContext.multimedia.images[0]?.url ||
+        "";
+}
+
+if (
+    !image &&
+    Array.isArray(pageContext.media?.images)
+) {
+    image =
+        pageContext.media.images[0]?.url ||
+        "";
+}
+
+if (
+    !image &&
+    Array.isArray(pageContext.productImages)
+) {
+    image =
+        pageContext.productImages[0]?.url ||
+        "";
+}
+
+// Convert Flipkart image template URL into a real image URL
+if (image) {
+
+    image = image
+        .replace(/\{@width\}/g, "312")
+        .replace(/\{@height\}/g, "312")
+        .replace(/\{@quality\}/g, "80");
+
+}
+
 
                 // 7. Clean Short URL Output
                 const url = `https://www.flipkart.com/product/p/item?pid=${pid}`;
