@@ -218,60 +218,61 @@ const formatImageUrl = (src) => {
                     }
                 }
 
-                // 6. Image Extraction with JSON State Fallback
-let image = "";
+                // 6. Robust Image Extraction (Multi-layer Fallback)
+                let image = "";
+                const imgEl = container.querySelector("img");
 
-// A. Extract from DOM img tags (srcset/data-src/src)
-const imgEl = container.querySelector("img");
-if (imgEl) {
-    const srcset = imgEl.getAttribute("srcset") || imgEl.getAttribute("data-srcset") || "";
-    if (srcset) {
-        const candidates = srcset.split(",").map((item) => item.trim().split(" ")[0]);
-        image = candidates[candidates.length - 1] || "";
-    }
+                if (imgEl) {
+                    // Method A: Check React internal props directly on the img node
+                    const reactPropKey = Object.keys(imgEl).find(key => key.startsWith("__reactFiber") || key.startsWith("__reactProps"));
+                    if (reactPropKey && imgEl[reactPropKey]) {
+                        const props = imgEl[reactPropKey].memoizedProps || imgEl[reactPropKey];
+                        if (props) {
+                            image = props.src || props.dataSrc || (props.srcSet ? props.srcSet.split(" ")[0] : "");
+                        }
+                    }
 
-    if (!image || image.includes("placeholder")) {
-        image = imgEl.getAttribute("data-src") || imgEl.getAttribute("src") || "";
-    }
-}
+                    // Method B: Standard DOM attributes
+                    if (!image || image.includes("placeholder")) {
+                        const srcset = imgEl.getAttribute("srcset") || imgEl.getAttribute("data-srcset") || "";
+                        if (srcset) {
+                            const candidates = srcset.split(",").map((item) => item.trim().split(" ")[0]);
+                            image = candidates[candidates.length - 1] || "";
+                        }
+                    }
 
-// B. Fallback: Parse directly from Flipkart's embedded JSON page state if DOM image is blank/placeholder
-if (!image || image.includes("placeholder")) {
-    try {
-        const scripts = Array.from(document.querySelectorAll("script"));
-        const stateScript = scripts.find(s => s.textContent && s.textContent.includes("__INITIAL_STATE__"));
-        
-        if (stateScript) {
-            const rawText = stateScript.textContent;
-            // Search for PID matches inside the raw JSON payload
-            const pidIndex = rawText.indexOf(pid);
-            if (pidIndex !== -1) {
-                // Look for image URL patterns within 1000 characters of the product ID
-                const chunk = rawText.substring(pidIndex, pidIndex + 1000);
-                const urlMatch = chunk.match(/http[s]?:\/\/[^"]*?\.flixcart\.com\/image\/[^\s"]+/i) ||
-                                 chunk.match(/http[s]?:\/\/[^"]*?\.fkcdn\.com\/image\/[^\s"]+/i);
-                if (urlMatch) {
-                    image = urlMatch[0];
+                    if (!image || image.includes("placeholder")) {
+                        image = imgEl.getAttribute("data-src") || imgEl.getAttribute("src") || "";
+                    }
                 }
-            }
-        }
-    } catch (e) {
-        // Fallback catch
-    }
-}
 
-// C. Clean URL & Protocol
-if (image) {
-    if (image.startsWith("//")) {
-        image = `https:${image}`;
-    }
-    image = formatImageUrl(image);
-    
-    // Discard generic placeholder SVG assets
-    if (image.includes("placeholder")) {
-        image = "";
-    }
-}
+                // Method C: Global Document Script Regex Extraction
+                if (!image || image.includes("placeholder")) {
+                    const stateScripts = Array.from(document.querySelectorAll("script")).filter(s => s.textContent && s.textContent.includes("flixcart.com"));
+                    for (const script of stateScripts) {
+                        const content = script.textContent;
+                        const pIdx = content.indexOf(pid);
+                        if (pIdx !== -1) {
+                            const snippet = content.substring(Math.max(0, pIdx - 500), pIdx + 1500);
+                            const imgMatch = snippet.match(/(https?:)?\/\/[^"'\s]*?flixcart\.com\/image\/[^"'\s]+/i);
+                            if (imgMatch) {
+                                image = imgMatch[0];
+                                break;
+                            }
+                        }
+                    }
+                }
+
+                // Clean formatting and protocols
+                if (image) {
+                    if (image.startsWith("//")) {
+                        image = `https:${image}`;
+                    }
+                    image = formatImageUrl(image);
+                    if (image.includes("placeholder")) {
+                        image = "";
+                    }
+                }
 
                 // 7. Clean Short URL Output
                 const url = `https://www.flipkart.com/product/p/item?pid=${pid}`;
