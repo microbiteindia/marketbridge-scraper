@@ -18,15 +18,24 @@ console.time(`amazon-goto-${asin}`);
 
             {
 
-                waitUntil: "domcontentloaded",
-
-                timeout: 30000
+                waitUntil: "commit",
+                timeout: 15000
 
             }
 
         );
 
 console.timeEnd(`amazon-goto-${asin}`);
+console.time(`amazon-wait-${asin}`);
+
+await page.waitForSelector(
+            "#productTitle",
+            {
+                timeout: 10000
+            }
+        );
+
+console.timeEnd(`amazon-wait-${asin}`);
 
         console.time(`amazon-extract-${asin}`);
 
